@@ -10,6 +10,7 @@ import numpy as np
 from . import operators
 from .autodiff import Context, Variable, backpropagate
 from .tensor_data import TensorData
+from .tensor_ops import SimpleBackend
 
 # Comment these out if not yet implemented
 from .tensor_functions import (
@@ -31,6 +32,7 @@ from .tensor_functions import (
     Sum,
     View,
     tensor,
+    zeros,
 )
 
 if TYPE_CHECKING:
@@ -71,31 +73,23 @@ class Tensor:
     unique_id: int
     name: str
 
-    def __init__(
-        self,
-        v: TensorData,
-        back: Optional[History] = None,
-        name: Optional[str] = None,
-        backend: Optional[TensorBackend] = None,
-    ):
+    def __init__(self, v: TensorData, back: Optional[History] = None, name: Optional[str] = None, backend: Optional[TensorBackend] = None):
         global _tensor_count
         _tensor_count += 1
         self.unique_id = _tensor_count
         assert isinstance(v, TensorData)
-        assert backend is not None
         self._tensor = v
         self.history = back
-        self.backend = backend
+        self.backend = backend if backend is not None else SimpleBackend()
         self.grad = None
-        if name is not None:
-            self.name = name
-        else:
-            self.name = str(self.unique_id)
-
-        self.f = backend
+        self.name = name if name is not None else str(self.unique_id)
+        self.f = self.backend
 
     def requires_grad_(self, x: bool) -> None:
-        self.history = History()
+        """Set the requires_grad attribute"""
+        self.history = History() if x else None
+        # Print check
+        print(f"Tensor {self.name} requires_grad set to {x}")
 
     def requires_grad(self) -> bool:
         return self.history is not None
@@ -254,10 +248,12 @@ class Tensor:
 
         x = h.last_fn._backward(h.ctx, d_output)
         assert len(x) == len(h.inputs), f"Bug in function {h.last_fn}"
-        return [
-            (inp, inp.expand(self._ensure_tensor(d_in)))
-            for inp, d_in in zip(h.inputs, x)
-        ]
+        result = []
+        for inp, d_in in zip(h.inputs, x):
+            if d_in is not None and inp.requires_grad():
+                result.append((inp, inp.expand(self._ensure_tensor(d_in))))
+        return result
+
 
     def backward(self, grad_output: Optional[Tensor] = None) -> None:
         if grad_output is None:
@@ -285,3 +281,77 @@ class Tensor:
 
     # Functions
     # TODO: Implement for Task 2.3.
+    @property
+    def size(self) -> int:
+        return self._tensor.size
+
+    @property
+    def dims(self) -> int:
+        return len(self.shape)
+
+    def __add__(self, other: TensorLike) -> Tensor:
+        return Add.apply(self, self._ensure_tensor(other))
+
+    def __sub__(self, other: TensorLike) -> Tensor:
+        return Add.apply(self, Neg.apply(self._ensure_tensor(other)))
+
+    def __mul__(self, other: TensorLike) -> Tensor:
+        return Mul.apply(self, self._ensure_tensor(other))
+
+    def __lt__(self, other: TensorLike) -> Tensor:
+        return LT.apply(self, self._ensure_tensor(other))
+
+    def __eq__(self, other: TensorLike) -> Tensor:
+        return EQ.apply(self, self._ensure_tensor(other))
+
+    def __neg__(self) -> Tensor:
+        return Neg.apply(self)
+
+    def __radd__(self, other: TensorLike) -> Tensor:
+        return self.__add__(other)
+
+    def __rmul__(self, other: TensorLike) -> Tensor:
+        return self.__mul__(other)
+
+    def all(self) -> Tensor:
+        return All.apply(self)
+
+    def is_close(self, other: TensorLike) -> Tensor:
+        return IsClose.apply(self, self._ensure_tensor(other))
+
+    def sigmoid(self) -> Tensor:
+        return Sigmoid.apply(self)
+
+    def relu(self) -> Tensor:
+        return ReLU.apply(self)
+
+    def log(self) -> Tensor:
+        return Log.apply(self)
+
+    def exp(self) -> Tensor:
+        return Exp.apply(self)
+
+    def sum(self, dim: Optional[int] = None) -> Tensor:
+        if dim is None:
+            # Sum over all dimensions
+            return self.backend.sum_reduce(self.contiguous().view(self.size), 0)
+        else:
+            # Sum over a specific dimension
+            return self.backend.sum_reduce(self, dim)
+
+    def mean(self, dim: Optional[int] = None) -> Tensor:
+        summed = self.sum(dim)
+        if dim is None:
+            return summed / self.size
+        else:
+            return summed / self.shape[dim]
+
+    def permute(self, *order: int) -> Tensor:
+        return Permute.apply(self, Tensor(list(order)))
+
+    def view(self, *shape: int) -> Tensor:
+        return View.apply(self, Tensor.make(list(shape), (len(shape),), backend=self.backend))
+
+    def zero_grad_(self):
+        if self.grad is not None:
+            self.grad = zeros(self.shape, backend=self.backend)
