@@ -46,9 +46,7 @@ class Function:
             if v.requires_grad():
                 need_grad = True
             raw_vals.append(v.detach())
-            # Print check to ensure that each input requires_grad status is correct
-            print(f"Tensor {v.name} passed to {cls.__name__} requires_grad: {v.requires_grad()}")
-        
+          
         # Create the context.
         ctx = Context(not need_grad)
 
@@ -132,19 +130,18 @@ class Sigmoid(Function):
         for idx in grad_input._tensor.indices():
             grad_input[idx] = grad_output[idx] * s[idx] * (1.0 - s[idx])
         return grad_input
-
 class ReLU(Function):
     @staticmethod
-    def forward(ctx: Context, t1: Tensor) -> Tensor:
-        ctx.save_for_backward(t1)
-        return t1.f.relu_map(t1)
+    def forward(ctx: Context, a: Tensor) -> Tensor:
+        ctx.save_for_backward(a)
+        return a.f.relu_map(a)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        (t1,) = ctx.saved_values
-        grad_input = grad_output * (t1 > 0).float()
-        return grad_input
-    
+        (a,) = ctx.saved_values
+        # 使用 relu_back_zip 修正
+        return grad_output.f.relu_back_zip(a, grad_output)
+
 class Log(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -226,22 +223,21 @@ class IsClose(Function):
 class Permute(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, order: Tensor) -> Tensor:
-        # 将 order 从 Tensor 转换为 Python 列表
-        order_list = [int(i) for i in order.data]
-        ctx.save_for_backward(order_list)
-        return a._new(a._tensor.permute(*order_list))
-    
-    @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        order = ctx.saved_values
-        # 计算逆置换
-        inv_order = [0] * len(order)
-        for i, j in enumerate(order):
-            inv_order[j] = i
-        grad_input = grad_output.permute(*inv_order)
-        # 返回的梯度需要与 forward 方法的输入对应
-        return grad_input, None
+        # 使用 _tensor 属性来获取底层数据
+        order_data = [int(order[i]) for i in range(order.size)]
+        ctx.save_for_backward(a.shape)
+        tensor_data = a._tensor.permute(*order_data)
+        return minitorch.Tensor(tensor_data, backend=a.backend)
 
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
+        (original_shape,) = ctx.saved_values
+        return (
+            minitorch.Tensor.make(
+                grad_output._tensor._storage, original_shape, backend=grad_output.backend
+            ),
+            0.0
+        )
 class View(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, shape: Tensor) -> Tensor:

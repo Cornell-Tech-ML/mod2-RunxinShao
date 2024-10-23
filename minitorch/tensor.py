@@ -88,8 +88,7 @@ class Tensor:
     def requires_grad_(self, x: bool) -> None:
         """Set the requires_grad attribute"""
         self.history = History() if x else None
-        # Print check
-        print(f"Tensor {self.name} requires_grad set to {x}")
+       
 
     def requires_grad(self) -> bool:
         return self.history is not None
@@ -333,11 +332,9 @@ class Tensor:
 
     def sum(self, dim: Optional[int] = None) -> Tensor:
         if dim is None:
-            # Sum over all dimensions
-            return self.backend.sum_reduce(self.contiguous().view(self.size), 0)
+            return Sum.apply(self.contiguous().view(self.size), self._ensure_tensor(0))
         else:
-            # Sum over a specific dimension
-            return self.backend.sum_reduce(self, dim)
+            return Sum.apply(self, self._ensure_tensor(dim))
 
     def mean(self, dim: Optional[int] = None) -> Tensor:
         summed = self.sum(dim)
@@ -347,11 +344,10 @@ class Tensor:
             return summed / self.shape[dim]
 
     def permute(self, *order: int) -> Tensor:
-        return Permute.apply(self, Tensor(list(order)))
+        return Permute.apply(self, tensor(list(order)))
 
     def view(self, *shape: int) -> Tensor:
-        return View.apply(self, Tensor.make(list(shape), (len(shape),), backend=self.backend))
+        return View.apply(self, tensor(list(shape)))
 
     def zero_grad_(self):
-        if self.grad is not None:
-            self.grad = zeros(self.shape, backend=self.backend)
+        self.grad = self.zeros(self.shape)

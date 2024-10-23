@@ -231,11 +231,38 @@ class SimpleOps(TensorOps):
             return out
 
         return ret
-
+  
     @staticmethod
     def matrix_multiply(a: "Tensor", b: "Tensor") -> "Tensor":
-        """Matrix multiplication"""
-        raise NotImplementedError("Not implemented in this assignment")
+        """矩阵乘法实现。"""
+        # 检查输入张量是否至少是二维的
+        if len(a.shape) < 2 or len(b.shape) < 2:
+            raise ValueError("Both tensors must be at least 2D for matrix multiplication")
+
+        # 确认 a 的最后一维与 b 的倒数第二维匹配
+        if a.shape[-1] != b.shape[-2]:
+            raise ValueError("Incompatible dimensions for matrix multiplication")
+
+        # 计算输出张量的形状
+        result_shape = a.shape[:-1] + (b.shape[-1],)
+        result = a.zeros(result_shape)
+
+        # 执行矩阵乘法
+        for index in result._tensor.indices():
+            # 计算对应的 a 和 b 的索引
+            a_index = index[:-1] + (slice(None),)
+            b_index = (slice(None),) + index[-1:]
+
+            # 初始化累加器
+            sum = 0.0
+            for k in range(a.shape[-1]):
+                a_idx = a_index[:-1] + (k,)
+                b_idx = (k,) + b_index[1:]
+                sum += a[a_idx] * b[b_idx]
+            result[index] = sum
+
+        return result
+
 
     is_cuda = False
 
