@@ -23,45 +23,40 @@ from .scalar_functions import (
 
 ScalarLike = Union[float, int, "Scalar"]
 
-
 @dataclass
 class ScalarHistory:
     """`ScalarHistory` stores the history of `Function` operations that was
     used to construct the current Variable.
-
+    
     Attributes
     ----------
-        last_fn : The last Function that was called.
-        ctx : The context for that Function.
-        inputs : The inputs that were given when `last_fn.forward` was called.
-
+    last_fn : The last Function that was called.
+    ctx : The context for that Function.
+    inputs : The inputs that were given when `last_fn.forward` was called.
     """
-
+    
     last_fn: Optional[Type[ScalarFunction]] = None
     ctx: Optional[Context] = None
     inputs: Sequence[Scalar] = ()
-
 
 # ## Task 1.2 and 1.4
 # Scalar Forward and Backward
 
 _var_count = 0
 
-
 @dataclass
 class Scalar:
-    """A reimplementation of scalar values for autodifferentiation
-    tracking. Scalar Variables behave as close as possible to standard
-    Python numbers while also tracking the operations that led to the
-    number's creation. They can only be manipulated by
-    `ScalarFunction`.
+    """A reimplementation of scalar values for autodifferentiation tracking.
+    Scalar Variables behave as close as possible to standard Python numbers 
+    while also tracking the operations that led to the number's creation.
+    They can only be manipulated by `ScalarFunction`.
     """
-
+    
     data: float
     history: Optional[ScalarHistory] = field(default_factory=ScalarHistory)
     derivative: Optional[float] = None
     name: str = field(default="")
-    unique_id: int = field(default=0)
+    unique_id: int = field(init=False, default=0)
 
     def __post_init__(self):
         global _var_count
@@ -92,15 +87,13 @@ class Scalar:
         return self * b
 
     # Variable elements for backprop
-
     def accumulate_derivative(self, x: Any) -> None:
-        """Add `val` to the the derivative accumulated on this variable.
+        """Add `val` to the derivative accumulated on this variable.
         Should only be called during autodifferentiation on leaf variables.
-
+        
         Args:
-        ----
-            x: value to be accumulated
-
+        -----
+        x: value to be accumulated
         """
         assert self.is_leaf(), "Only leaf variables can have derivatives."
         if self.derivative is None:
@@ -112,54 +105,58 @@ class Scalar:
         return self.history is not None and self.history.last_fn is None
 
     def is_constant(self) -> bool:
+        """Answer: return self.history is None"""
         return self.history is None
+    def __add__(self, b: ScalarLike) -> Scalar:
+        return Add.apply(self, b)
 
-    @property
-    def parents(self) -> Iterable[Variable]:
-        """Get the variables used to create this one."""
-        assert self.history is not None
-        return self.history.inputs
+    def __lt__(self,b:ScalarLike) -> Scalar:
+        return LT.apply(self, b)
 
-    def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
-        h = self.history
-        assert h is not None
-        assert h.last_fn is not None
-        assert h.ctx is not None
+    def __gt__(self, b: ScalarLike) -> Scalar:
+        return LT.apply(b, self)
 
-        raise NotImplementedError("Need to include this file from past assignment.")
+    def __eq__(self, b: ScalarLike) -> Scalar:  # type: ignore[override]
+        return EQ.apply(b, self)
 
-    def backward(self, d_output: Optional[float] = None) -> None:
-        """Calls autodiff to fill in the derivatives for the history of this object.
+    def __sub__(self, b: ScalarLike) -> Scalar:
+        return Add.apply(self, -b)
 
-        Args:
-        ----
-            d_output (number, opt): starting derivative to backpropagate through the model
-                                   (typically left out, and assumed to be 1.0).
+    def __neg__(self) -> Scalar:
+        return Neg.apply(self)
 
-        """
-        if d_output is None:
-            d_output = 1.0
-        backpropagate(self, d_output)
+    def log(self) -> Scalar:
+        """Logarithm function"""
+        return Log.apply(self)
 
-    raise NotImplementedError("Need to include this file from past assignment.")
+    def exp(self) -> Scalar:
+        """Exponential function"""
+        return Exp.apply(self)
 
+    def sigmoid(self) -> Scalar:
+        """Sigmoid function"""
+        return Sigmoid.apply(self)
+
+    def relu(self) -> Scalar:
+        """ReLU function"""
+        return ReLU.apply(self)
 
 def derivative_check(f: Any, *scalars: Scalar) -> None:
     """Checks that autodiff works on a python function.
     Asserts False if derivative is incorrect.
-
-    Parameters
-    ----------
-        f : function from n-scalars to 1-scalar.
-        *scalars  : n input scalar values.
-
+    
+    Args:
+    -----
+    f : function from n-scalars to 1-scalar.
+    *scalars : n input scalar values.
     """
+    print(f"\n{f}")
     out = f(*scalars)
     out.backward()
 
     err_msg = """
-Derivative check at arguments f(%s) and received derivative f'=%f for argument %d,
-but was expecting derivative f'=%f from central difference."""
+    Derivative check at arguments f(%s) and received derivative f'=%f for argument %d,
+    but was expecting derivative f'!=%f from central difference.""" 
     for i, x in enumerate(scalars):
         check = central_difference(f, *scalars, arg=i)
         print(str([x.data for x in scalars]), x.derivative, i, check)
@@ -172,3 +169,33 @@ but was expecting derivative f'=%f from central difference."""
             err_msg=err_msg
             % (str([x.data for x in scalars]), x.derivative, i, check.data),
         )
+
+@property
+def parents(self) -> Iterable[Variable]:
+    """Docstring: assert self.history is not None
+    return self.history.inputs
+    """
+    assert self.history is not None
+    return self.history.inputs
+
+def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+    h = self.history
+    assert h is not None
+    assert h.last_fn is not None
+    assert h.ctx is not None
+
+    x = h.last_fn._backward(h.ctx, d_output)
+    return list(zip(h.inputs, x))
+
+def backward(self, d_output: Optional[float] = None) -> None:
+    """Calls autodiff to fill in the derivatives for the history of this object.
+
+    Args:
+    -----
+    d_output (number, opt): starting derivative to backpropagate through the model
+    (typically left out, and assumed to be 1.0).
+    """
+    if d_output is None:
+        d_output = 1.0
+    backpropagate(self, d_output)
+
