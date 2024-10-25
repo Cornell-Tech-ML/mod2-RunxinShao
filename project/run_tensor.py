@@ -5,16 +5,51 @@ Be sure you have minitorch installed in you Virtual Env.
 
 import minitorch
 
+
 # Use this function to make a random parameter in
 # your module.
 def RParam(*shape):
-    r = 2 * (minitorch.rand(shape) - 0.5)
+    r = 0.7 * (minitorch.rand(shape) - 0.5)
     return minitorch.Parameter(r)
 
+
+class Network(minitorch.Module):
+    def __init__(self, hidden_layers):
+        super().__init__()
+
+        # Submodules
+        self.layer1 = Linear(2, hidden_layers)
+        self.layer2 = Linear(hidden_layers, hidden_layers)
+        self.layer3 = Linear(hidden_layers, 1)
+
+    def forward(self, x):
+        h = self.layer1.forward(x).relu()
+        h = self.layer2.forward(h).relu()
+        return self.layer3.forward(h).sigmoid()
+
+
 # TODO: Implement for Task 2.5.
+class Linear(minitorch.Module):
+    def __init__(self, in_size, out_size):
+        super().__init__()
+        self.weights = RParam(in_size, out_size)
+        self.bias = RParam(out_size)
+        self.out_size = out_size
+
+    def forward(self, x):
+        batch_x = x.view(*x.shape, 1)
+        batch_w = self.weights.value.view(1, *self.weights.value.shape)
+        out = (batch_x * batch_w).sum(1)
+        out = out.view(-1, self.out_size)
+        out = out + self.bias.value.view(1, -1)
+        return out
+
 
 def default_log_fn(epoch, total_loss, correct, losses):
-    print("Epoch ", epoch, " loss ", total_loss, "correct", correct)
+    print(f"Epoch {epoch}, Loss {total_loss}, Correct {correct}")
+    if epoch % 10 == 0:
+        print(f"Model parameters: {self.model.parameters()}")
+        print(f"Gradients: {[p.grad for p in self.model.parameters()]}")
 
 
 class TensorTrain:
@@ -58,7 +93,7 @@ class TensorTrain:
             # Logging
             if epoch % 10 == 0 or epoch == max_epochs:
                 y2 = minitorch.tensor(data.y)
-                correct = int(((out.detach() > 0.5) == y2).sum()[0])
+                correct = int(((out.detach() > minitorch.tensor(0.5)) == y2).sum()[0])
                 log_fn(epoch, total_loss, correct, losses)
 
 

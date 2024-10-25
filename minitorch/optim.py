@@ -6,15 +6,18 @@ from .scalar import Scalar
 
 class Optimizer:
     def __init__(self, parameters: Sequence[Parameter]):
+        """Initialize the optimizer."""
         self.parameters = parameters
 
 
 class SGD(Optimizer):
     def __init__(self, parameters: Sequence[Parameter], lr: float = 1.0):
+        """Initialize the SGD optimizer."""
         super().__init__(parameters)
         self.lr = lr
 
     def zero_grad(self) -> None:
+        """Zero out the gradients of the parameters."""
         for p in self.parameters:
             if p.value is None:
                 continue
@@ -26,6 +29,7 @@ class SGD(Optimizer):
                     p.value.grad = None
 
     def step(self) -> None:
+        """Update the parameters of the model."""
         for p in self.parameters:
             if p.value is None:
                 continue

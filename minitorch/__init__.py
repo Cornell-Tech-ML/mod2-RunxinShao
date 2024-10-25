@@ -1,3 +1,7 @@
+"""Here is the minitorch package, which includes various modules for tensor operations,
+datasets, optimization, autodiff, scalar operations, and more.
+"""
+
 from .testing import MathTest, MathTestVariable  # type: ignore # noqa: F401,F403
 from .tensor_data import *  # noqa: F401,F403
 from .tensor import *  # noqa: F401,F403
