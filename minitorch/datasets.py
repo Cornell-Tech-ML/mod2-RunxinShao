@@ -5,6 +5,7 @@ from typing import List, Tuple
 
 
 def make_pts(N: int) -> List[Tuple[float, float]]:
+    """Generate N random points in the unit square."""
     X = []
     for i in range(N):
         x_1 = random.random()
@@ -15,12 +16,15 @@ def make_pts(N: int) -> List[Tuple[float, float]]:
 
 @dataclass
 class Graph:
+    """A dataset of N points in the unit square with labels."""
+
     N: int
     X: List[Tuple[float, float]]
     y: List[int]
 
 
 def simple(N: int) -> Graph:
+    """A simple dataset with N points in the unit square."""
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -30,6 +34,7 @@ def simple(N: int) -> Graph:
 
 
 def diag(N: int) -> Graph:
+    """A dataset with N points in the unit square."""
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -39,6 +44,7 @@ def diag(N: int) -> Graph:
 
 
 def split(N: int) -> Graph:
+    """A dataset with N points in the unit square."""
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -48,6 +54,7 @@ def split(N: int) -> Graph:
 
 
 def xor(N: int) -> Graph:
+    """A dataset with N points in the unit square."""
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -57,6 +64,7 @@ def xor(N: int) -> Graph:
 
 
 def circle(N: int) -> Graph:
+    """A dataset with N points in the unit square."""
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -67,6 +75,8 @@ def circle(N: int) -> Graph:
 
 
 def spiral(N: int) -> Graph:
+    """A dataset with N points in the unit square."""
+
     def x(t: float) -> float:
         return t * math.cos(t) / 20.0
 

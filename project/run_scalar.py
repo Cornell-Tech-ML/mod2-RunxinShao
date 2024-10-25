@@ -4,6 +4,7 @@
 import random
 import minitorch
 
+
 class Network(minitorch.Module):
     def __init__(self, hidden_layers):
         super().__init__()
@@ -16,6 +17,7 @@ class Network(minitorch.Module):
         end = [h.relu() for h in self.layer2.forward(middle)]
         return self.layer3.forward(end)[0].sigmoid()
 
+
 class Linear(minitorch.Module):
     def __init__(self, in_size, out_size):
         super().__init__()
@@ -25,11 +27,15 @@ class Linear(minitorch.Module):
             self.weights.append([])
             for j in range(out_size):
                 self.weights[i].append(
-                    self.add_parameter(f"weight_{i}_{j}", minitorch.Scalar(2 * (random.random() - 0.5)))
+                    self.add_parameter(
+                        f"weight_{i}_{j}", minitorch.Scalar(2 * (random.random() - 0.5))
+                    )
                 )
         for j in range(out_size):
             self.bias.append(
-                self.add_parameter(f"bias_{j}", minitorch.Scalar(2 * (random.random() - 0.5)))
+                self.add_parameter(
+                    f"bias_{j}", minitorch.Scalar(2 * (random.random() - 0.5))
+                )
             )
 
     def forward(self, inputs):
@@ -39,8 +45,10 @@ class Linear(minitorch.Module):
                 y[j] = y[j] + x * self.weights[i][j].value
         return y
 
+
 def default_log_fn(epoch, total_loss, correct, losses):
     print("Epoch", epoch, "loss", total_loss, "correct", correct)
+
 
 class ScalarTrain:
     def __init__(self, hidden_layers):
@@ -88,6 +96,7 @@ class ScalarTrain:
 
             if epoch % 10 == 0 or epoch == max_epochs:
                 log_fn(epoch, total_loss, correct, losses)
+
 
 if __name__ == "__main__":
     PTS = 50
